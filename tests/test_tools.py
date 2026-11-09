@@ -39,6 +39,46 @@ def test_lecture_summary():
     assert "まだありません" in tools.get_lecture_summary(99)
 
 
+def test_make_quiz_uses_a_term_from_the_requested_lecture(monkeypatch):
+    monkeypatch.setattr(tools.random, "choice", lambda terms: terms[0])
+    expected = next(entry for entry in tools.load_glossary() if entry["lecture"] == 3)
+
+    quiz = tools.make_quiz(3)
+
+    assert "第3回の確認問題" in quiz
+    assert f"問題: 用語「{expected['term']}」の定義は何ですか？" in quiz
+    assert f"答え: {expected['definition']}" in quiz
+
+
+def test_make_quiz_reports_when_lecture_has_no_terms():
+    assert "第99回の用語は用語集にありません" in tools.make_quiz(99)
+
+
+def test_make_multiple_choice_has_three_terms_from_the_requested_lecture(monkeypatch):
+    monkeypatch.setattr(tools.random, "choice", lambda terms: terms[0])
+    monkeypatch.setattr(tools.random, "sample", lambda terms, k: terms[:k])
+    monkeypatch.setattr(tools.random, "shuffle", lambda terms: None)
+    expected = next(entry for entry in tools.load_glossary() if entry["lecture"] == 3)
+
+    question = tools.make_multiple_choice(3)
+
+    assert "第3回の3択問題" in question
+    assert expected["definition"] in question
+    options = [
+        line.split(". ", 1)[1]
+        for line in question.splitlines()
+        if line[:2] in {"1.", "2.", "3."}
+    ]
+    assert len(options) == 3
+    assert len(set(options)) == 3
+    assert expected["term"] in options
+    assert question.endswith(f"答え: {expected['term']}")
+
+
+def test_make_multiple_choice_reports_when_lecture_has_no_terms():
+    assert "第99回の用語は用語集にありません" in tools.make_multiple_choice(99)
+
+
 def test_default_question_of_lecture1_is_answerable_from_glossary():
     """第1回の既定の質問（app.ask）は、第3回のエージェントが用語集で正しく答えられること。"""
     from app.ask import DEFAULT_QUESTION
