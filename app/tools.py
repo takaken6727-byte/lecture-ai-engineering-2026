@@ -5,6 +5,7 @@
 """
 
 import json
+import random
 from functools import cache
 from pathlib import Path
 
@@ -77,3 +78,42 @@ def get_lecture_summary(lecture: int) -> str:
         available = sorted(p.stem for p in (DATA_DIR / "lectures").glob("*.md"))
         return f"第{lecture}回の要点はまだありません。用意されている回: {', '.join(available)}"
     return path.read_text(encoding="utf-8")
+
+
+def make_quiz(lecture: int) -> str:
+    """指定した回の用語から1つ選び、その用語の定義を問う確認問題と答えを返す。"""
+    terms = [entry for entry in load_glossary() if entry["lecture"] == lecture]
+    if not terms:
+        available = sorted({entry["lecture"] for entry in load_glossary()})
+        return f"第{lecture}回の用語は用語集にありません。用語がある回: {', '.join(map(str, available))}"
+
+    entry = random.choice(terms)
+    return (
+        f"第{lecture}回の確認問題:\n"
+        f"問題: 用語「{entry['term']}」の定義は何ですか？\n"
+        f"答え: {entry['definition']}"
+    )
+
+
+def make_multiple_choice(lecture: int) -> str:
+    """指定した回の用語の定義を問題文にし、3つの選択肢と答えを返す。"""
+    terms = [entry for entry in load_glossary() if entry["lecture"] == lecture]
+    if not terms:
+        available = sorted({entry["lecture"] for entry in load_glossary()})
+        return f"第{lecture}回の用語は用語集にありません。用語がある回: {', '.join(map(str, available))}"
+
+    answer = random.choice(terms)
+    distractors = random.sample(
+        [entry for entry in terms if entry["id"] != answer["id"]], k=2
+    )
+    choices = [answer["term"], *(entry["term"] for entry in distractors)]
+    random.shuffle(choices)
+
+    return (
+        f"第{lecture}回の3択問題:\n"
+        f"問題: 次の定義に当てはまる用語はどれですか？\n"
+        f"{answer['definition']}\n"
+        f"選択肢:\n"
+        f"{chr(10).join(f'{index}. {term}' for index, term in enumerate(choices, start=1))}\n"
+        f"答え: {answer['term']}"
+    )
